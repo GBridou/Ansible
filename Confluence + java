@@ -1,0 +1,45 @@
+---
+- name: Déploiement de Confluence
+  hosts: machines
+  become: true
+  become_method: su
+  vars:
+    confluence_version: 8.1.1
+    confluence_install_path: /opt/confluence
+    java_version: "11"
+
+  tasks:
+
+    - name: Installer OpenJDK
+      apt:
+        name: openjdk-{{ java_version }}-jdk
+        state: present
+
+    - name: Créer le répertoire d'installation
+      file:
+        path: "{{ confluence_install_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Télécharger Confluence
+      get_url:
+        url: "https://www.atlassian.com/software/confluence/downloads/binary/atlassian-confluence-{{ confluence_version }}.tar.gz"
+        dest: "{{ confluence_install_path }}/atlassian-confluence-{{ confluence_version }}.tar.gz"
+        mode: '0644'
+
+    - name: Extraire Confluence
+      unarchive:
+        src: "{{ confluence_install_path }}/atlassian-confluence-{{ confluence_version }}.tar.gz"
+        dest: "{{ confluence_install_path }}"
+        remote_src: yes
+        creates: "{{ confluence_install_path }}/atlassian-confluence-{{ confluence_version }}/bin/setenv.sh"
+
+    - name: Configuration de l'environnement
+      blockinfile:
+        path: "{{ confluence_install_path }}/atlassian-confluence-{{ confluence_version }}/bin/setenv.sh"
+        block: |
+          export CATALINA_OPTS="-Xms2g -Xmx2g -Datlassian.plugins.enable.wait=300"
+
+    - name: Démarrer Confluence
+      command: "{{ confluence_install_path }}/atlassian-confluence-{{ confluence_version }}/bin/start-confluence.sh"
+
